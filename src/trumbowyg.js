@@ -1,3 +1,14 @@
+/**
+ * Trumbowyg v2.9.2 - A lightweight WYSIWYG editor
+ * Trumbowyg core file
+ * ------------------------
+ * @link http://alex-d.github.io/Trumbowyg
+ * @license MIT
+ * @author Alexandre Demode (Alex-D)
+ *         Twitter : @AlexandreDemode
+ *         Website : alex-d.fr
+ */
+
 jQuery.trumbowyg = {
     langs: {
         en: {
@@ -31,6 +42,8 @@ jQuery.trumbowyg = {
             link: 'Link',
             createLink: 'Insert link',
             unlink: 'Remove link',
+			
+			createTable: 'Create Table',
 
             justifyLeft: 'Align Left',
             justifyCenter: 'Align Center',
@@ -90,6 +103,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
             ['superscript', 'subscript'],
             ['link'],
             ['insertImage'],
+			['createTable'],
             ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'],
             ['unorderedList', 'orderedList'],
             ['horizontalRule'],
@@ -220,7 +234,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                     var source = scriptElements[i].src;
                     var matches = source.match('trumbowyg(\.min)?\.js');
                     if (matches != null) {
-                        svgPathOption = source.substring(0, source.indexOf(matches[0])) + 'ui/icons.svg';
+                        svgPathOption = source.substring(0, source.indexOf(matches[0])) + '/icons.svg';
                     }
                 }
                 if (svgPathOption == null) {
@@ -340,6 +354,11 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
             },
             unlink: {},
 
+			createTable:{
+				key: 'T',
+				tag: 'a'
+			},
+			
             insertImage: {},
 
             justifyLeft: {
@@ -430,14 +449,6 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
     };
 
     Trumbowyg.prototype = {
-        DEFAULT_SEMANTIC_MAP: {
-            'b': 'strong',
-            'i': 'em',
-            's': 'del',
-            'strike': 'del',
-            'div': 'p'
-        },
-
         init: function () {
             var t = this;
             t.height = t.$ta.height();
@@ -548,7 +559,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
             var ctrl = false,
                 composition = false,
                 debounceButtonPaneStatus,
-                updateEventName = 'keyup';
+                updateEventName = t.isIE ? 'keyup' : 'input';
 
             t.$ed
                 .on('dblclick', 'img', t.o.imgDblClickHandler)
@@ -583,8 +594,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                     if ((e.ctrlKey || e.metaKey) && (keyCode === 89 || keyCode === 90)) {
                         t.$c.trigger('tbwchange');
                     } else if (!ctrl && keyCode !== 17) {
-                        var compositionEndIE = t.isIE ? e.type === 'compositionend' : true;
-                        t.semanticCode(false, compositionEndIE && keyCode === 13);
+                        t.semanticCode(false, e.type === 'compositionend' && keyCode === 13);
                         t.$c.trigger('tbwchange');
                     } else if (typeof e.which === 'undefined') {
                         t.semanticCode(false, false, true);
@@ -592,13 +602,13 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
 
                     setTimeout(function () {
                         ctrl = false;
-                    }, 50);
+                    }, 200);
                 })
                 .on('mouseup keydown keyup', function (e) {
                     if ((!e.ctrlKey && !e.metaKey) || e.altKey) {
-                        setTimeout(function () { // "hold on" to the ctrl key for 50ms
+                        setTimeout(function () { // "hold on" to the ctrl key for 200ms
                             ctrl = false;
-                        }, 50);
+                        }, 200);
                     }
                     clearTimeout(debounceButtonPaneStatus);
                     debounceButtonPaneStatus = setTimeout(function () {
@@ -776,8 +786,8 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                 $btn.addClass(prefix + 'open-dropdown');
                 var dropdownPrefix = prefix + 'dropdown',
                     dropdownOptions = { // the dropdown
-                        class: dropdownPrefix + '-' + btnName + ' ' + dropdownPrefix + ' ' + prefix + 'fixed-top'
-                    };
+                    class: dropdownPrefix + '-' + btnName + ' ' + dropdownPrefix + ' ' + prefix + 'fixed-top'
+                };
                 dropdownOptions['data-' + dropdownPrefix] = btnName;
                 var $dropdown = $('<div/>', dropdownOptions);
                 $.each(isDropdown, function (i, def) {
@@ -1030,8 +1040,8 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
 
                 $('body', d).on('mousedown.' + t.eventNamespace, function (e) {
                     if (!$dropdown.is(e.target)) {
-                        $('.' + prefix + 'dropdown', t.$box).hide();
-                        $('.' + prefix + 'active', t.$btnPane).removeClass(prefix + 'active');
+                        $('.' + prefix + 'dropdown', d).hide();
+                        $('.' + prefix + 'active', d).removeClass(prefix + 'active');
                         $('body', d).off('mousedown.' + t.eventNamespace);
                     }
                 });
@@ -1042,14 +1052,11 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
         // HTML Code management
         html: function (html) {
             var t = this;
-
             if (html != null) {
                 t.$ta.val(html);
                 t.syncCode(true);
-                t.$c.trigger('tbwchange');
                 return t;
             }
-
             return t.$ta.val();
         },
         syncTextarea: function () {
@@ -1097,10 +1104,10 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
             t.syncCode(force);
 
             if (t.o.semantic) {
-                t.semanticTag('b');
-                t.semanticTag('i');
-                t.semanticTag('s');
-                t.semanticTag('strike');
+                t.semanticTag('b', 'strong');
+                t.semanticTag('i', 'em');
+                t.semanticTag('s', 'del');
+                t.semanticTag('strike', 'del');
 
                 if (full) {
                     var inlineElementsSelector = t.o.inlineElementsSelector,
@@ -1122,7 +1129,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                     };
                     wrapInlinesInParagraphsFrom(t.$ed.children(inlineElementsSelector).first());
 
-                    t.semanticTag('div', true);
+                    t.semanticTag('div', 'p', true);
 
                     // Unwrap paragraphs content, containing nothing usefull
                     t.$ed.find('p').filter(function () {
@@ -1148,17 +1155,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
             }
         },
 
-        semanticTag: function (oldTag, copyAttributes) {
-            var newTag;
-
-            if (this.o.semantic != null && typeof this.o.semantic === 'object' && this.o.semantic.hasOwnProperty(oldTag)) {
-                newTag = this.o.semantic[oldTag];
-            } else if (this.o.semantic === true && this.DEFAULT_SEMANTIC_MAP.hasOwnProperty(oldTag)) {
-                newTag = this.DEFAULT_SEMANTIC_MAP[oldTag];
-            } else {
-                return;
-            }
-
+        semanticTag: function (oldTag, newTag, copyAttributes) {
             $(oldTag, this.$ed).each(function () {
                 var $oldTag = $(this);
                 $oldTag.wrap('<' + newTag + '/>');
@@ -1170,13 +1167,55 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                 $oldTag.contents().unwrap();
             });
         },
+		
+		// Function call when user click on "Create table"
+        createTable: function () {
+            var t = this,
+                documentSelection = t.doc.getSelection(),
+                node = documentSelection.focusNode,
+                tablerows,
+                tablecolumns;
+
+            t.saveRange();
+
+            t.openModalInsert(t.lang.createTable, {
+                tablerows: {
+                    label: 'Rows',
+                    required: true,
+                    value: tablerows
+                },
+				tablecolumns: {
+                    label: 'Columns',
+                    required: true,
+                    value: tablecolumns
+                }
+            }, function (v) { // v is value
+				var link='<table style="border:1px solid black;width:100%">';
+				for (var r = 0; r < v.tablerows; r++){
+					link += '<tr style="border:1px solid black;">'
+					for (var c = 0; c < v.tablecolumns; c++){
+						link += '<td style="border:1px solid black;"></td>';
+					}
+					link += '</tr>'
+				}
+				
+				link += '</table>';
+				
+				link = $(link);
+				
+                t.range.deleteContents();
+                t.range.insertNode(link[0]);
+                t.syncCode();
+                t.$c.trigger('tbwchange');
+                return true;
+            });
+        },
 
         // Function call when user click on "Insert Link"
         createLink: function () {
             var t = this,
                 documentSelection = t.doc.getSelection(),
                 node = documentSelection.focusNode,
-                text = new XMLSerializer().serializeToString(documentSelection.getRangeAt(0).cloneContents()),
                 url,
                 title,
                 target;
@@ -1187,7 +1226,6 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
 
             if (node && node.nodeName === 'A') {
                 var $a = $(node);
-                text = $a.text();
                 url = $a.attr('href');
                 title = $a.attr('title');
                 target = $a.attr('target');
@@ -1211,14 +1249,14 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                 },
                 text: {
                     label: t.lang.text,
-                    value: text
+                    value: new XMLSerializer().serializeToString(documentSelection.getRangeAt(0).cloneContents())
                 },
                 target: {
                     label: t.lang.target,
                     value: target
                 }
             }, function (v) { // v is value
-                var link = $(['<a href="', v.url, '">', v.text || v.url, '</a>'].join(''));
+                var link = $(['<a href="', v.url, '">', v.text, '</a>'].join(''));
                 if (v.title.length > 0) {
                     link.attr('title', v.title);
                 }
@@ -1474,7 +1512,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                 html = '';
 
             $.each(fields, function (fieldName, field) {
-                var l = field.label || fieldName,
+                var l = field.label,
                     n = field.name || fieldName,
                     a = field.attributes || {};
 
@@ -1482,10 +1520,8 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                     return prop + '="' + a[prop] + '"';
                 }).join(' ');
 
-                html += '<label><input type="' + (field.type || 'text') + '" name="' + n + '"' +
-                    (field.type === 'checkbox' && field.value ? ' checked="checked"' : ' value="' + (field.value || '').replace(/"/g, '&quot;')) +
-                    '"' + attr + '><span class="' + prefix + 'input-infos"><span>' +
-                    (lg[l] ? lg[l] : l) +
+                html += '<label><input type="' + (field.type || 'text') + '" name="' + n + '" value="' + (field.value || '').replace(/"/g, '&quot;') + '"' + attr + '><span class="' + prefix + 'input-infos"><span>' +
+                    ((!l) ? (lg[fieldName] ? lg[fieldName] : fieldName) : (lg[l] ? lg[l] : l)) +
                     '</span></span></label>';
             });
 
@@ -1496,27 +1532,19 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                         values = {};
 
                     $.each(fields, function (fieldName, field) {
-                        var n = field.name || fieldName;
-
-                        var $field = $('input[name="' + n + '"]', $form),
+                        var $field = $('input[name="' + fieldName + '"]', $form),
                             inputType = $field.attr('type');
 
-                        switch (inputType.toLowerCase()) {
-                            case 'checkbox':
-                                values[n] = $field.is(':checked');
-                                break;
-                            case 'radio':
-                                values[n] = $field.filter(':checked').val();
-                                break;
-                            default:
-                                values[n] = $.trim($field.val());
-                                break;
+                        if (inputType.toLowerCase() === 'checkbox') {
+                            values[fieldName] = $field.is(':checked');
+                        } else {
+                            values[fieldName] = $.trim($field.val());
                         }
                         // Validate value
-                        if (field.required && values[n] === '') {
+                        if (field.required && values[fieldName] === '') {
                             valid = false;
                             t.addErrorOnModalField($field, t.lang.required);
-                        } else if (field.pattern && !field.pattern.test(values[n])) {
+                        } else if (field.pattern && !field.pattern.test(values[fieldName])) {
                             valid = false;
                             t.addErrorOnModalField($field, field.patternError);
                         }
@@ -1591,7 +1619,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
                 t.openModalInsert(t.lang.insertImage, options, function (v) {
                     if (v.src !== base64) {
                         $img.attr({
-                            src: v.url
+                            src: v.src
                         });
                     }
                     $img.attr({
@@ -1732,9 +1760,7 @@ Object.defineProperty(jQuery.trumbowyg, 'defaultOptions', {
 
             tags.push(tag);
 
-            return t.getTagsRecursive(element, tags).filter(function (tag) {
-                return tag != null;
-            });
+            return t.getTagsRecursive(element, tags).filter(function(tag) { return tag != null; });
         },
 
         // Plugins
